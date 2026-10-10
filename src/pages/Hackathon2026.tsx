@@ -217,6 +217,10 @@ export const Hackathon2026: React.FC = () => {
             <a href="#submission" className="hover:text-emerald-400 transition-colors text-emerald-300 font-bold">
               Submit Project
             </a>
+            <Link to="/ai-judge" className="text-cyan-300 font-extrabold hover:text-cyan-200 transition-colors flex items-center gap-1 bg-cyan-950/80 px-2.5 py-1 rounded-lg border border-cyan-500/50 shadow-sm shadow-cyan-500/20">
+              <Sparkles className="h-3.5 w-3.5 text-cyan-400 animate-pulse" />
+              AI Judge System
+            </Link>
             <a href="#tools" className="hover:text-cyan-400 transition-colors">
               AI Tools
             </a>
@@ -227,6 +231,16 @@ export const Hackathon2026: React.FC = () => {
 
           {/* CTA Buttons */}
           <div className="flex items-center gap-2 sm:gap-3">
+            <Link to="/ai-judge">
+              <Button
+                variant="outline"
+                size="sm"
+                className="border-cyan-500/60 text-cyan-300 hover:bg-cyan-500/20 text-xs flex items-center gap-1.5 px-3 bg-cyan-950/60"
+              >
+                <Trophy className="h-3.5 w-3.5 text-amber-400" />
+                AI Judge & Leaderboard
+              </Button>
+            </Link>
             <Link to="/admin">
               <Button
                 variant="outline"

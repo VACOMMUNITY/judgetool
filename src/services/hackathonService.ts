@@ -485,33 +485,109 @@ export const hackathonService = {
     return null;
   },
 
-  // 9b. Get All Project Submissions
+  // 9b. Get All Project Submissions (Robust Aggregator)
   async getAllProjectSubmissions(): Promise<ProjectSubmission[]> {
+    const map = new Map<string, ProjectSubmission>();
+
+    // 1. Try Supabase
     try {
       const { data, error } = await supabase
         .from('project_submissions' as any)
         .select('*')
         .order('submitted_at', { ascending: false });
       
-      if (!error && data) {
-        return data as ProjectSubmission[];
+      if (!error && Array.isArray(data)) {
+        data.forEach((sub: any) => {
+          if (sub && sub.team_id) {
+            map.set(sub.team_id, sub as ProjectSubmission);
+          }
+        });
       }
     } catch {}
-    return [];
+
+    // 2. Scan localStorage for dedicated array
+    try {
+      const allRaw = localStorage.getItem('cva_all_project_submissions');
+      if (allRaw) {
+        const parsed = JSON.parse(allRaw);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((sub: any) => {
+            if (sub && sub.team_id && !map.has(sub.team_id)) {
+              map.set(sub.team_id, sub);
+            }
+          });
+        }
+      }
+    } catch {}
+
+    // 3. Scan localStorage individual keys (cva_submission_*)
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith('cva_submission_')) {
+            const raw = localStorage.getItem(key);
+            if (raw) {
+              const sub = JSON.parse(raw);
+              if (sub && sub.team_id && !map.has(sub.team_id)) {
+                map.set(sub.team_id, sub);
+              }
+            }
+          }
+        }
+      }
+    } catch {}
+
+    // 4. Scan AI Judge Teams Store (cva_judge_teams_store_v2)
+    try {
+      const judgeTeamsRaw = localStorage.getItem('cva_judge_teams_store_v2');
+      if (judgeTeamsRaw) {
+        const judgeTeams = JSON.parse(judgeTeamsRaw);
+        if (Array.isArray(judgeTeams)) {
+          judgeTeams.forEach((jt: any) => {
+            if (jt && jt.id && !map.has(jt.id)) {
+              // Convert AI judge team to project submission
+              const hasVideos = jt.videoUrls && (jt.videoUrls.video1 || jt.videoUrls.video4);
+              if (jt.projectName || hasVideos) {
+                map.set(jt.id, {
+                  id: `sub_${jt.id}`,
+                  team_id: jt.id,
+                  github_link: 'https://github.com/project',
+                  linkedin_link: '',
+                  vercel_link: jt.videoUrls?.video4 || jt.videoUrls?.video1 || 'https://demo.vercel.app',
+                  status: jt.evaluationStatus === 'Completed' ? 'EVALUATED' : 'SUBMITTED',
+                  submitted_at: jt.createdAt || new Date().toISOString(),
+                  updated_at: jt.createdAt || new Date().toISOString(),
+                });
+              }
+            }
+          });
+        }
+      }
+    } catch {}
+
+    const results = Array.from(map.values());
+    results.sort((a, b) => new Date(b.submitted_at || 0).getTime() - new Date(a.submitted_at || 0).getTime());
+    return results;
   },
 
   // 10. Submit Project
   async submitProject(payload: ProjectSubmission): Promise<ProjectSubmission> {
     const newSubmission = {
       ...payload,
-      status: 'SUBMITTED',
-      submitted_at: new Date().toISOString(),
+      status: payload.status || 'SUBMITTED',
+      submitted_at: payload.submitted_at || new Date().toISOString(),
       updated_at: new Date().toISOString()
     };
 
     // Save to local cache
     try {
       localStorage.setItem(`cva_submission_${payload.team_id}`, JSON.stringify(newSubmission));
+      const allRaw = localStorage.getItem('cva_all_project_submissions');
+      const all: ProjectSubmission[] = allRaw ? JSON.parse(allRaw) : [];
+      const filtered = all.filter(s => s.team_id !== payload.team_id);
+      filtered.push(newSubmission);
+      localStorage.setItem('cva_all_project_submissions', JSON.stringify(filtered));
     } catch {}
 
     try {

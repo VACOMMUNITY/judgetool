@@ -15,6 +15,7 @@ import FollowUps from "@/pages/FollowUps";
 import Settings from "@/pages/Settings";
 import Hackathon2026 from "@/pages/Hackathon2026";
 import AdminHackathon from "@/pages/AdminHackathon";
+import AIJudgePortal from "@/pages/AIJudgePortal";
 import ErrorBoundary from "@/components/common/ErrorBoundary";
 import NotFound from "./pages/NotFound";
 
@@ -28,6 +29,14 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
+            <Route
+              path="/ai-judge"
+              element={
+                <ErrorBoundary fallbackTitle="Community.VA AI Judge System">
+                  <AIJudgePortal />
+                </ErrorBoundary>
+              }
+            />
             <Route
               path="/hackathon-2026"
               element={
@@ -53,7 +62,7 @@ const App = () => (
               }
             />
             <Route path="/auth" element={<Auth />} />
-            <Route path="/" element={<Navigate to="/hackathon-2026" replace />} />
+            <Route path="/" element={<Navigate to="/ai-judge" replace />} />
             <Route element={<AppLayout />}>
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/leads" element={<Leads />} />

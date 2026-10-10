@@ -41,6 +41,9 @@ import {
   Lock,
   KeyRound,
   LogOut,
+  Trophy,
+  Code,
+  Sparkles,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -67,6 +70,15 @@ export const AdminHackathon: React.FC = () => {
   // Reject Dialog
   const [rejectingReg, setRejectingReg] = useState<HackathonRegistration | null>(null);
   const [rejectionReason, setRejectionReason] = useState('Payment receipt could not be verified.');
+
+  // Project Submission Dialog
+  const [submissionDialogOpen, setSubmissionDialogOpen] = useState(false);
+  const [subTeamId, setSubTeamId] = useState('');
+  const [subGithub, setSubGithub] = useState('');
+  const [subVercel, setSubVercel] = useState('');
+  const [subLinkedin, setSubLinkedin] = useState('');
+  const [subStatus, setSubStatus] = useState<'SUBMITTED' | 'UNDER_REVIEW' | 'APPROVED' | 'EVALUATED'>('SUBMITTED');
+  const [isSavingSub, setIsSavingSub] = useState(false);
 
   // Settings Form State
   const [eventDate, setEventDate] = useState('');
@@ -265,6 +277,61 @@ export const AdminHackathon: React.FC = () => {
     setFaqs(updated);
   };
 
+  const handleOpenSubmissionDialog = (reg?: HackathonRegistration, existingSub?: ProjectSubmission) => {
+    if (existingSub) {
+      setSubTeamId(existingSub.team_id);
+      setSubGithub(existingSub.github_link || '');
+      setSubVercel(existingSub.vercel_link || '');
+      setSubLinkedin(existingSub.linkedin_link || '');
+      setSubStatus((existingSub.status as any) || 'SUBMITTED');
+    } else if (reg) {
+      setSubTeamId(reg.team_id);
+      setSubGithub('');
+      setSubVercel('');
+      setSubLinkedin('');
+      setSubStatus('SUBMITTED');
+    } else {
+      setSubTeamId(registrations[0]?.team_id || '');
+      setSubGithub('');
+      setSubVercel('');
+      setSubLinkedin('');
+      setSubStatus('SUBMITTED');
+    }
+    setSubmissionDialogOpen(true);
+  };
+
+  const handleSaveSubmission = async () => {
+    if (!subTeamId) {
+      toast({ title: 'Select a Team', description: 'Please choose which team to record submission for.', variant: 'destructive' });
+      return;
+    }
+    setIsSavingSub(true);
+    try {
+      await hackathonService.submitProject({
+        team_id: subTeamId,
+        github_link: subGithub.trim() || 'https://github.com/project',
+        vercel_link: subVercel.trim() || 'https://demo.vercel.app',
+        linkedin_link: subLinkedin.trim() || '',
+        status: subStatus,
+      });
+
+      toast({
+        title: 'Project Submission Recorded 🎉',
+        description: `Project submission updated for team ${subTeamId}.`,
+      });
+      setSubmissionDialogOpen(false);
+      loadData();
+    } catch {
+      toast({
+        title: 'Error Saving Submission',
+        description: 'Failed to save project submission.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSavingSub(false);
+    }
+  };
+
   // Private Admin Login Barrier
   if (!isAdminAuthenticated) {
     return (
@@ -392,6 +459,11 @@ export const AdminHackathon: React.FC = () => {
             >
               <RefreshCw className="h-4 w-4" /> Refresh
             </Button>
+            <a href="/ai-judge" target="_blank" rel="noreferrer">
+              <Button size="sm" className="bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black flex items-center gap-2 shadow-md shadow-amber-500/20">
+                <Trophy className="h-4 w-4" /> AI Judge Portal 🏆
+              </Button>
+            </a>
             <a href="/hackathon-2026" target="_blank" rel="noreferrer">
               <Button size="sm" className="cyber-button-glow text-slate-950 font-bold flex items-center gap-2">
                 <ExternalLink className="h-4 w-4" /> Open Landing Page
@@ -401,7 +473,7 @@ export const AdminHackathon: React.FC = () => {
         </div>
 
       {/* DASHBOARD STATS GRID */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
         <StatCard
           title="Total Teams"
           value={totalTeams}
@@ -423,6 +495,11 @@ export const AdminHackathon: React.FC = () => {
           icon={<CheckCircle className="h-5 w-5 text-cyan-500" />}
         />
         <StatCard
+          title="Projects Submitted"
+          value={submissions.length}
+          icon={<Code className="h-5 w-5 text-purple-400" />}
+        />
+        <StatCard
           title="Early Bird Left"
           value={settings?.early_bird_remaining ?? 31}
           icon={<Flame className="h-5 w-5 text-red-500" />}
@@ -432,8 +509,8 @@ export const AdminHackathon: React.FC = () => {
       {/* TABS: REGISTRATIONS vs CONTENT MANAGEMENT */}
       <Tabs defaultValue="registrations" className="space-y-6">
         <TabsList className="grid w-full sm:w-auto grid-cols-3">
-          <TabsTrigger value="registrations">Registration Management</TabsTrigger>
-          <TabsTrigger value="submissions">Project Submissions</TabsTrigger>
+          <TabsTrigger value="registrations">Registration Management ({registrations.length})</TabsTrigger>
+          <TabsTrigger value="submissions">Project Submissions ({submissions.length})</TabsTrigger>
           <TabsTrigger value="content">Content & Settings</TabsTrigger>
         </TabsList>
 
@@ -617,64 +694,165 @@ export const AdminHackathon: React.FC = () => {
         {/* TAB 2: PROJECT SUBMISSIONS */}
         <TabsContent value="submissions" className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle>Project Submissions</CardTitle>
-              <CardDescription>View and review all submitted projects.</CardDescription>
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  Project Submissions ({submissions.length})
+                </CardTitle>
+                <CardDescription>
+                  Review submitted GitHub repositories, deployed live demos, LinkedIn presentations, and AI judging status.
+                </CardDescription>
+              </div>
+
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  size="sm"
+                  onClick={() => handleOpenSubmissionDialog()}
+                  className="bg-purple-600 hover:bg-purple-500 text-white font-semibold text-xs flex items-center gap-1.5 shadow-md"
+                >
+                  <Plus className="h-4 w-4" /> Record Submission
+                </Button>
+                <a href="/ai-judge" target="_blank" rel="noreferrer">
+                  <Button
+                    size="sm"
+                    className="bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 hover:from-amber-400 hover:to-yellow-300 text-slate-950 font-black text-xs flex items-center gap-1.5 shadow-md shadow-amber-500/20"
+                  >
+                    <Trophy className="h-4 w-4" /> Open AI Judge Portal 🏆
+                  </Button>
+                </a>
+              </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <div className="rounded-xl border border-border overflow-hidden overflow-x-auto">
                 <table className="w-full text-sm text-left">
                   <thead className="bg-muted/60 text-xs font-semibold uppercase text-muted-foreground">
                     <tr>
                       <th className="p-3">Team Details</th>
-                      <th className="p-3">GitHub</th>
-                      <th className="p-3">LinkedIn</th>
-                      <th className="p-3">Vercel</th>
+                      <th className="p-3">Track / Category</th>
+                      <th className="p-3">GitHub Repository</th>
+                      <th className="p-3">Live Deployment</th>
+                      <th className="p-3">LinkedIn Demo</th>
                       <th className="p-3">Submitted At</th>
                       <th className="p-3">Status</th>
+                      <th className="p-3 text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {submissions.length > 0 ? (
                       submissions.map((sub) => {
-                        const team = registrations.find(r => r.team_id === sub.team_id);
+                        const team = registrations.find((r) => r.team_id === sub.team_id);
                         return (
                           <tr key={sub.id || sub.team_id} className="hover:bg-muted/30 transition-colors">
                             <td className="p-3">
-                              <div className="font-bold text-foreground">{team?.team_name || 'Unknown Team'}</div>
+                              <div className="font-bold text-foreground">
+                                {team?.team_name || sub.team_id}
+                              </div>
                               <div className="text-xs font-mono text-cyan-600 dark:text-cyan-400">
                                 {sub.team_id}
                               </div>
+                              {team && (
+                                <div className="text-[11px] text-muted-foreground">
+                                  {team.leader_name} • {team.college}
+                                </div>
+                              )}
                             </td>
                             <td className="p-3">
-                              <a href={sub.github_link} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline flex items-center gap-1">
-                                <ExternalLink className="h-3 w-3"/> View Repo
-                              </a>
+                              <span className="inline-block text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary font-medium">
+                                {team?.track || 'General AI'}
+                              </span>
                             </td>
                             <td className="p-3">
-                              <a href={sub.linkedin_link} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline flex items-center gap-1">
-                                <ExternalLink className="h-3 w-3"/> View Post
-                              </a>
+                              {sub.github_link ? (
+                                <a
+                                  href={sub.github_link}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-blue-500 hover:underline flex items-center gap-1 font-mono text-xs truncate max-w-[150px]"
+                                >
+                                  <ExternalLink className="h-3 w-3 shrink-0" />
+                                  <span className="truncate">View Code</span>
+                                </a>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">None</span>
+                              )}
                             </td>
                             <td className="p-3">
-                              <a href={sub.vercel_link} target="_blank" rel="noreferrer" className="text-blue-500 hover:underline flex items-center gap-1">
-                                <ExternalLink className="h-3 w-3"/> View Site
-                              </a>
-                            </td>
-                            <td className="p-3 text-xs text-muted-foreground">
-                              {new Date(sub.submitted_at || Date.now()).toLocaleString()}
+                              {sub.vercel_link ? (
+                                <a
+                                  href={sub.vercel_link}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-emerald-500 hover:underline flex items-center gap-1 font-mono text-xs truncate max-w-[150px]"
+                                >
+                                  <ExternalLink className="h-3 w-3 shrink-0" />
+                                  <span className="truncate">Live Demo</span>
+                                </a>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">None</span>
+                              )}
                             </td>
                             <td className="p-3">
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
+                              {sub.linkedin_link ? (
+                                <a
+                                  href={sub.linkedin_link}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-cyan-500 hover:underline flex items-center gap-1 font-mono text-xs truncate max-w-[150px]"
+                                >
+                                  <ExternalLink className="h-3 w-3 shrink-0" />
+                                  <span className="truncate">Post Link</span>
+                                </a>
+                              ) : (
+                                <span className="text-xs text-muted-foreground">None</span>
+                              )}
+                            </td>
+                            <td className="p-3 text-xs text-muted-foreground font-mono">
+                              {new Date(sub.submitted_at || Date.now()).toLocaleDateString()}{' '}
+                              {new Date(sub.submitted_at || Date.now()).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </td>
+                            <td className="p-3">
+                              <span
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                  sub.status === 'EVALUATED' || sub.status === 'APPROVED'
+                                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                                    : sub.status === 'UNDER_REVIEW'
+                                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30'
+                                    : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/30'
+                                }`}
+                              >
                                 {sub.status || 'SUBMITTED'}
                               </span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                                <a href="/ai-judge" target="_blank" rel="noreferrer">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 text-xs border-amber-500/50 text-amber-400 hover:bg-amber-500/10 font-bold"
+                                  >
+                                    <Trophy className="h-3 w-3 mr-1" /> Judge
+                                  </Button>
+                                </a>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() => handleOpenSubmissionDialog(team, sub)}
+                                  className="h-7 text-xs text-slate-300 hover:text-white"
+                                >
+                                  Edit
+                                </Button>
+                              </div>
                             </td>
                           </tr>
                         );
                       })
                     ) : (
                       <tr>
-                        <td colSpan={6} className="p-8 text-center text-muted-foreground">
+                        <td colSpan={8} className="p-8 text-center text-muted-foreground">
                           No project submissions found.
                         </td>
                       </tr>
@@ -682,6 +860,49 @@ export const AdminHackathon: React.FC = () => {
                   </tbody>
                 </table>
               </div>
+
+              {/* Quick Record Section for registered teams that don't have submissions yet */}
+              {registrations.length > 0 && (
+                <div className="bg-muted/30 border border-border rounded-xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
+                        <Code className="h-3.5 w-3.5 text-purple-400" /> Registered Teams Quick Submissions
+                      </h4>
+                      <p className="text-[11px] text-muted-foreground">
+                        Attach project repositories and demo URLs for verified teams.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                    {registrations.map((reg) => {
+                      const hasSub = submissions.some((s) => s.team_id === reg.team_id);
+                      return (
+                        <div
+                          key={reg.id}
+                          className="bg-card p-3 rounded-lg border border-border flex items-center justify-between gap-2"
+                        >
+                          <div className="min-w-0">
+                            <div className="font-bold text-xs truncate">{reg.team_name}</div>
+                            <div className="text-[10px] font-mono text-cyan-500 truncate">{reg.team_id}</div>
+                            <div className="text-[10px] text-muted-foreground truncate">{reg.leader_name}</div>
+                          </div>
+
+                          <Button
+                            size="sm"
+                            variant={hasSub ? 'outline' : 'default'}
+                            onClick={() => handleOpenSubmissionDialog(reg)}
+                            className="h-7 text-xs shrink-0"
+                          >
+                            {hasSub ? 'Edit Project' : 'Add Project'}
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -894,6 +1115,107 @@ export const AdminHackathon: React.FC = () => {
                 Confirm Rejection
               </Button>
             </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+      {/* RECORD / EDIT PROJECT SUBMISSION MODAL */}
+      <Dialog open={submissionDialogOpen} onOpenChange={setSubmissionDialogOpen}>
+        <DialogContent className="max-w-md bg-slate-950 text-white border-purple-500/30">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg">
+              <Code className="h-5 w-5 text-purple-400" />
+              Record Project Submission
+            </DialogTitle>
+            <DialogDescription className="text-slate-400 text-xs">
+              Attach GitHub code, deployed demo, and presentation links for hackathon evaluation.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2 text-xs">
+            {/* Team Picker */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-slate-300">Selected Team</Label>
+              <Select value={subTeamId} onValueChange={(val) => setSubTeamId(val)}>
+                <SelectTrigger className="bg-slate-900 border-slate-700 text-white text-xs h-9">
+                  <SelectValue placeholder="Choose a registered team" />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-900 border-slate-700 text-white">
+                  {registrations.map((r) => (
+                    <SelectItem key={r.team_id} value={r.team_id}>
+                      {r.team_name} ({r.team_id})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* GitHub Repo */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-slate-300">GitHub Repository URL</Label>
+              <Input
+                placeholder="https://github.com/organization/project"
+                value={subGithub}
+                onChange={(e) => setSubGithub(e.target.value)}
+                className="bg-slate-900 border-slate-700 text-white text-xs h-9 font-mono"
+              />
+            </div>
+
+            {/* Vercel Live Demo */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-slate-300">Live Demo / Deployed Link (Vercel / Cloud)</Label>
+              <Input
+                placeholder="https://my-ai-hackathon-demo.vercel.app"
+                value={subVercel}
+                onChange={(e) => setSubVercel(e.target.value)}
+                className="bg-slate-900 border-slate-700 text-white text-xs h-9 font-mono"
+              />
+            </div>
+
+            {/* LinkedIn Post */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-slate-300">LinkedIn Post URL</Label>
+              <Input
+                placeholder="https://linkedin.com/posts/team-ai-demo"
+                value={subLinkedin}
+                onChange={(e) => setSubLinkedin(e.target.value)}
+                className="bg-slate-900 border-slate-700 text-white text-xs h-9 font-mono"
+              />
+            </div>
+
+            {/* Status */}
+            <div className="space-y-1.5">
+              <Label className="text-xs text-slate-300">Submission Review Status</Label>
+              <Select value={subStatus} onValueChange={(val: any) => setSubStatus(val)}>
+                <SelectTrigger className="bg-slate-900 border-slate-700 text-white text-xs h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-slate-900 border-slate-700 text-white">
+                  <SelectItem value="SUBMITTED">SUBMITTED (Pending Review)</SelectItem>
+                  <SelectItem value="UNDER_REVIEW">UNDER_REVIEW (In Judging)</SelectItem>
+                  <SelectItem value="APPROVED">APPROVED (Verified Good)</SelectItem>
+                  <SelectItem value="EVALUATED">EVALUATED (Scored in AI Judge)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSubmissionDialogOpen(false)}
+              className="text-xs border-slate-700 text-slate-300"
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleSaveSubmission}
+              disabled={isSavingSub}
+              className="bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs"
+            >
+              {isSavingSub ? 'Saving...' : 'Save Submission'}
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
