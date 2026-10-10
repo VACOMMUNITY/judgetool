@@ -68,6 +68,7 @@ export const CertificateDistributionDialog: React.FC<CertificateDistributionDial
   // Recipient target: Entire Team or specific member
   const [recipientMode, setRecipientMode] = useState<'team' | 'member'>('team');
   const [selectedMemberName, setSelectedMemberName] = useState<string>('');
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
 
   const [qrCodeDataUrl, setQrCodeDataUrl] = useState<string>('');
   const [dispatchedMap, setDispatchedMap] = useState<Record<string, { num1?: boolean; num2?: boolean; timestamp?: string }>>(() => {
@@ -120,12 +121,17 @@ export const CertificateDistributionDialog: React.FC<CertificateDistributionDial
     }
   }, [selectedTeam?.id, templateTheme]);
 
-  if (!selectedTeam) {
-    return null;
-  }
-
   // Determine certificate titles based on result
-  const getCertificateTier = (team: HackathonTeamRecord) => {
+  const getCertificateTier = (team?: HackathonTeamRecord) => {
+    if (!team) {
+      return {
+        title: 'CERTIFICATE OF PARTICIPATION',
+        honor: 'PARTICIPANT',
+        roleLabel: 'PARTICIPANT',
+        recognitionText: 'We appreciate your enthusiasm and commitment towards building AI solutions.',
+        participationVerb: 'has participated in the',
+      };
+    }
     if (team.rank === 1) {
       return {
         title: 'CERTIFICATE OF WINNER',
@@ -161,11 +167,13 @@ export const CertificateDistributionDialog: React.FC<CertificateDistributionDial
     }
   };
 
-  const certId = `CVA-AI-2026-${selectedTeam.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase()}`;
-  const recipientDisplayName = recipientMode === 'member' && selectedMemberName ? selectedMemberName : selectedTeam.teamName;
-  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const tier = getCertificateTier(selectedTeam);
+  const certId = selectedTeam ? `CVA-AI-2026-${selectedTeam.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase()}` : '';
+  const recipientDisplayName = recipientMode === 'member' && selectedMemberName ? selectedMemberName : (selectedTeam?.teamName || '');
 
-  const directCertificateUrl = `${window.location.origin}/ai-judge?view=certificate&teamId=${selectedTeam.id}&theme=${templateTheme}&recipient=${encodeURIComponent(recipientDisplayName)}`;
+  const directCertificateUrl = selectedTeam
+    ? `${window.location.origin}/ai-judge?view=certificate&teamId=${selectedTeam.id}&theme=${templateTheme}&recipient=${encodeURIComponent(recipientDisplayName)}`
+    : '';
 
   const captureCertificateCanvas = async () => {
     if (!certRef.current) return null;
@@ -314,8 +322,12 @@ export const CertificateDistributionDialog: React.FC<CertificateDistributionDial
     window.print();
   };
 
-  const isSentNum1 = Boolean(dispatchedMap[selectedTeam.id]?.num1);
-  const isSentNum2 = Boolean(dispatchedMap[selectedTeam.id]?.num2);
+  const isSentNum1 = Boolean(selectedTeam && dispatchedMap[selectedTeam.id]?.num1);
+  const isSentNum2 = Boolean(selectedTeam && dispatchedMap[selectedTeam.id]?.num2);
+
+  if (!selectedTeam) {
+    return null;
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
