@@ -10,6 +10,7 @@ import { AddTeamDialog } from '@/components/judge/AddTeamDialog';
 import { ApiKeySettingsDialog } from '@/components/judge/ApiKeySettingsDialog';
 import { AnnounceWinnerDialog } from '@/components/judge/AnnounceWinnerDialog';
 import { CertificateDistributionDialog } from '@/components/judge/CertificateDistributionDialog';
+import { PublicCertificateView } from '@/components/judge/PublicCertificateView';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -41,7 +42,9 @@ export const AIJudgePortal: React.FC = () => {
 
   const [teams, setTeams] = useState<HackathonTeamRecord[]>([]);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'evaluation' | 'leaderboard'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'evaluation' | 'leaderboard' | 'certificate'>('dashboard');
+  const [urlCertTheme, setUrlCertTheme] = useState<'dark_winner' | 'light_clean' | undefined>(undefined);
+  const [urlCertRecipient, setUrlCertRecipient] = useState<string | undefined>(undefined);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'All' | 'Completed' | 'Pending' | 'Needs Review'>('All');
@@ -71,6 +74,25 @@ export const AIJudgePortal: React.FC = () => {
 
   useEffect(() => {
     reloadTeams();
+
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const viewParam = params.get('view');
+      const teamParam = params.get('team') || params.get('teamId');
+      const themeParam = params.get('theme') as 'dark_winner' | 'light_clean' | null;
+      const recipientParam = params.get('recipient');
+
+      if (themeParam) setUrlCertTheme(themeParam);
+      if (recipientParam) setUrlCertRecipient(recipientParam);
+
+      if (viewParam === 'certificate' || params.has('certificate') || (params.has('verify') && teamParam)) {
+        if (teamParam) {
+          setSelectedTeamId(teamParam);
+          setCertificateTargetTeamId(teamParam);
+        }
+        setActiveTab('certificate');
+      }
+    } catch {}
   }, []);
 
   const handleSelectTeamToEvaluate = (teamId: string) => {
@@ -280,6 +302,25 @@ export const AIJudgePortal: React.FC = () => {
               Top 3
             </span>
           </button>
+
+          {(activeTab === 'certificate' || (selectedTeam && selectedTeam.finalApprovedTotal > 0)) && (
+            <button
+              onClick={() => setActiveTab('certificate')}
+              className={`px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 transition-all ${
+                activeTab === 'certificate'
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+              }`}
+            >
+              <Award className="w-3.5 h-3.5 text-emerald-400" />
+              Verified Certificate
+              {selectedTeam && (
+                <span className="text-[10px] text-emerald-300 truncate max-w-[110px]">
+                  ({selectedTeam.teamName})
+                </span>
+              )}
+            </button>
+          )}
         </div>
       </header>
 
@@ -678,6 +719,27 @@ export const AIJudgePortal: React.FC = () => {
               onAnnounceWinner={() => setIsAnnounceWinnerOpen(true)}
               onOpenDistributeCertificates={handleOpenDistributeCertificates}
             />
+          </div>
+        )}
+
+        {/* VIEW 4: PUBLIC VERIFIED CERTIFICATE SHOWCASE */}
+        {activeTab === 'certificate' && (
+          <div>
+            {selectedTeam ? (
+              <PublicCertificateView
+                team={selectedTeam}
+                initialTheme={urlCertTheme}
+                initialRecipient={urlCertRecipient}
+                onBackToDashboard={() => setActiveTab('dashboard')}
+              />
+            ) : (
+              <div className="bg-[#0B132B] rounded-2xl border border-slate-800 p-8 text-center space-y-3">
+                <p className="text-slate-400 text-sm">No team selected for certificate display.</p>
+                <Button onClick={() => setActiveTab('dashboard')} className="bg-cyan-600 text-xs">
+                  Return to Dashboard
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </main>

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import QRCode from 'qrcode';
 import confetti from 'canvas-confetti';
+import html2canvas from 'html2canvas';
 import {
   HackathonTeamRecord,
   hackathonJudgeDb,
@@ -28,6 +29,10 @@ import {
   Users,
   Eye,
   Check,
+  Download,
+  Copy,
+  Share2,
+  ExternalLink,
 } from 'lucide-react';
 
 interface CertificateDistributionDialogProps {
@@ -156,9 +161,73 @@ export const CertificateDistributionDialog: React.FC<CertificateDistributionDial
     }
   };
 
-  const tier = getCertificateTier(selectedTeam);
   const certId = `CVA-AI-2026-${selectedTeam.id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 8).toUpperCase()}`;
   const recipientDisplayName = recipientMode === 'member' && selectedMemberName ? selectedMemberName : selectedTeam.teamName;
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+
+  const directCertificateUrl = `${window.location.origin}/ai-judge?view=certificate&teamId=${selectedTeam.id}&theme=${templateTheme}&recipient=${encodeURIComponent(recipientDisplayName)}`;
+
+  const captureCertificateCanvas = async () => {
+    if (!certRef.current) return null;
+    return await html2canvas(certRef.current, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: templateTheme === 'dark_winner' ? '#060A17' : '#FFFFFF',
+      logging: false,
+    });
+  };
+
+  const handleDownloadImage = async () => {
+    setIsGeneratingImage(true);
+    try {
+      const canvas = await captureCertificateCanvas();
+      if (!canvas) throw new Error('Could not render certificate');
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = `CommunityVA_Certificate_${selectedTeam.teamName.replace(/\s+/g, '_')}_${templateTheme}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      toast({
+        title: 'HD Certificate Image Downloaded! 🎓',
+        description: `Saved high-resolution PNG certificate for ${recipientDisplayName}.`,
+      });
+    } catch {
+      toast({
+        title: 'Image Download Failed',
+        description: 'Unable to render image. You can use the Print / PDF option.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
+
+  const handleCopyImageToClipboard = async () => {
+    setIsGeneratingImage(true);
+    try {
+      const canvas = await captureCertificateCanvas();
+      if (!canvas) throw new Error('Could not render certificate');
+      canvas.toBlob(async (blob) => {
+        if (!blob) return;
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+          toast({
+            title: 'Certificate Image Copied! 📋',
+            description: 'Now switch to WhatsApp and press Ctrl+V to paste and send the actual certificate image!',
+          });
+        } catch {
+          handleDownloadImage();
+        }
+      }, 'image/png');
+    } catch {
+      toast({ title: 'Copy failed', variant: 'destructive' });
+    } finally {
+      setIsGeneratingImage(false);
+    }
+  };
 
   const formatWhatsAppMessage = (team: HackathonTeamRecord) => {
     const t = getCertificateTier(team);
@@ -176,16 +245,20 @@ export const CertificateDistributionDialog: React.FC<CertificateDistributionDial
       `• Video 3 (Prototype Demonstration): ${team.judgeOverrides.video3 ?? team.scores.video3}/25\n` +
       `• Video 4 (Final Demonstration): ${team.judgeOverrides.video4 ?? team.scores.video4}/40\n` +
       `⭐ *TOTAL SCORE: ${team.finalApprovedTotal} / 100 (${team.finalApprovedTotal}%)*\n\n` +
-      `📜 *Certificate ID:* ${certId}\n` +
+      `📜 *Certificate Serial:* ${certId}\n` +
       `⚖️ *Judge & Ratifier:* Paidimarri Abhiram (Founder & CEO, Community.VA)\n` +
-      `🏛️ *Issued By:* Community.VA Hackathon Organizing Committee\n` +
-      `🔗 *View Verified Scorecard:* ${window.location.origin}/ai-judge\n\n` +
+      `🏛️ *Issued By:* Community.VA Hackathon Organizing Committee\n\n` +
+      `👉 *CLICK BELOW TO VIEW & DOWNLOAD YOUR OFFICIAL HD CERTIFICATE:*\n` +
+      `${directCertificateUrl}\n\n` +
       `Congratulations on your exceptional accomplishment! 🚀`;
 
     return encodeURIComponent(text);
   };
 
   const handleSendWhatsApp = (contact: typeof DEFAULT_DISTRIBUTE_NUMBERS[0]) => {
+    // Also try copying the image to clipboard so user can just Ctrl+V in WhatsApp Web
+    handleCopyImageToClipboard();
+
     const encoded = formatWhatsAppMessage(selectedTeam);
     const url = `https://wa.me/${contact.rawPhone}?text=${encoded}`;
     window.open(url, '_blank');
@@ -205,7 +278,7 @@ export const CertificateDistributionDialog: React.FC<CertificateDistributionDial
 
     toast({
       title: `Certificate Dispatched to ${contact.phone} 🚀`,
-      description: `Dispatched ${tier.title} for ${recipientDisplayName} ratified by Paidimarri Abhiram (Founder & CEO).`,
+      description: `Opened WhatsApp! Certificate image is also copied to clipboard (press Ctrl+V to paste).`,
     });
   };
 
@@ -896,11 +969,32 @@ export const CertificateDistributionDialog: React.FC<CertificateDistributionDial
           <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
             <Button
               size="sm"
+              onClick={handleDownloadImage}
+              disabled={isGeneratingImage}
+              className="bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs h-8 shadow-sm"
+            >
+              <Download className="w-3.5 h-3.5 mr-1" />
+              {isGeneratingImage ? 'Rendering...' : 'Download HD Image (PNG)'}
+            </Button>
+
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleCopyImageToClipboard}
+              disabled={isGeneratingImage}
+              className="border-slate-700 bg-slate-900 text-slate-200 hover:text-white hover:bg-slate-800 text-xs h-8"
+              title="Copy image so you can paste (Ctrl+V) directly into WhatsApp"
+            >
+              <Copy className="w-3.5 h-3.5 mr-1" /> Copy Image
+            </Button>
+
+            <Button
+              size="sm"
               variant="outline"
               onClick={handlePrintCertificate}
               className="border-slate-700 text-slate-300 hover:bg-slate-800 text-xs h-8"
             >
-              <Printer className="w-3.5 h-3.5 mr-1.5" /> Print Certificate
+              <Printer className="w-3.5 h-3.5 mr-1.5" /> Print / PDF
             </Button>
 
             <Button
@@ -908,7 +1002,7 @@ export const CertificateDistributionDialog: React.FC<CertificateDistributionDial
               onClick={handleDistributeBothNumbers}
               className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs h-8 px-4 shadow-md shadow-emerald-600/30"
             >
-              <Send className="w-3.5 h-3.5 mr-1.5" /> Distribute Now
+              <Send className="w-3.5 h-3.5 mr-1.5" /> Distribute to Both Numbers
             </Button>
           </div>
         </div>
