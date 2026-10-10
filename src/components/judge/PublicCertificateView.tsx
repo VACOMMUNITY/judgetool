@@ -99,17 +99,45 @@ export const PublicCertificateView: React.FC<PublicCertificateViewProps> = ({
 
   const tier = getTier();
 
+  const captureCertificateCanvas = async () => {
+    if (!certRef.current) return null;
+    try {
+      if (document.fonts) {
+        await document.fonts.ready;
+      }
+    } catch {
+      // ignore
+    }
+    return await html2canvas(certRef.current, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: theme === 'dark_winner' ? '#060A17' : '#FFFFFF',
+      logging: false,
+      onclone: (clonedDoc) => {
+        // Safety pass: Strip any gradient text clip classes that cause html2canvas solid box artifacts
+        const elements = clonedDoc.querySelectorAll('*');
+        elements.forEach((el) => {
+          const htmlEl = el as HTMLElement;
+          if (htmlEl.classList?.contains('text-transparent')) {
+            htmlEl.classList.remove('text-transparent');
+          }
+          if (htmlEl.classList?.contains('bg-clip-text')) {
+            htmlEl.classList.remove('bg-clip-text');
+            htmlEl.style.webkitBackgroundClip = 'unset';
+            htmlEl.style.backgroundClip = 'unset';
+            htmlEl.style.backgroundImage = 'none';
+          }
+        });
+      },
+    });
+  };
+
   const handleDownloadImage = async () => {
-    if (!certRef.current) return;
     setIsGenerating(true);
     try {
-      const canvas = await html2canvas(certRef.current, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: theme === 'dark_winner' ? '#060A17' : '#FFFFFF',
-        logging: false,
-      });
+      const canvas = await captureCertificateCanvas();
+      if (!canvas) throw new Error('Could not render certificate');
       const dataUrl = canvas.toDataURL('image/png');
       const a = document.createElement('a');
       a.href = dataUrl;
@@ -133,15 +161,10 @@ export const PublicCertificateView: React.FC<PublicCertificateViewProps> = ({
   };
 
   const handleCopyImage = async () => {
-    if (!certRef.current) return;
     setIsGenerating(true);
     try {
-      const canvas = await html2canvas(certRef.current, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: theme === 'dark_winner' ? '#060A17' : '#FFFFFF',
-      });
+      const canvas = await captureCertificateCanvas();
+      if (!canvas) throw new Error('Could not render certificate');
       canvas.toBlob(async (blob) => {
         if (!blob) return;
         try {
@@ -381,19 +404,28 @@ export const PublicCertificateView: React.FC<PublicCertificateViewProps> = ({
 
             {/* Main Title & Laurel Wreath */}
             <div className="relative z-10 text-center space-y-2 mb-4">
-              <h1 className="text-2xl sm:text-4xl font-black uppercase tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-300 via-blue-400 to-cyan-200 drop-shadow-[0_0_20px_rgba(34,211,238,0.4)]">
-                AI INNOVATION HACKATHON 2026
+              <h1
+                className="text-2xl sm:text-4xl font-black uppercase tracking-wider text-cyan-300 drop-shadow-[0_0_20px_rgba(34,211,238,0.7)]"
+                style={{ wordSpacing: '0.25em' }}
+              >
+                AI{'\u00A0'}INNOVATION{'\u00A0'}HACKATHON{'\u00A0'}2026
               </h1>
 
-              <div className="inline-block px-4 py-1 rounded-full border border-cyan-400/80 bg-cyan-950/40 text-cyan-200 text-[10px] sm:text-xs font-mono font-bold tracking-widest uppercase">
-                BUILD AI-POWERED SOLUTIONS FOR REAL-WORLD PROBLEMS
+              <div
+                className="inline-block px-4 py-1 rounded-full border border-cyan-400/80 bg-cyan-950/40 text-cyan-200 text-[10px] sm:text-xs font-mono font-bold tracking-widest uppercase"
+                style={{ wordSpacing: '0.2em' }}
+              >
+                BUILD{'\u00A0'}AI-POWERED{'\u00A0'}SOLUTIONS{'\u00A0'}FOR{'\u00A0'}REAL-WORLD{'\u00A0'}PROBLEMS
               </div>
 
               {/* Laurel Wreath */}
               <div className="flex items-center justify-center gap-3 pt-3">
                 <span className="text-2xl text-yellow-400 transform -scale-x-100">🌿</span>
-                <h2 className="text-xl sm:text-3xl font-cert-serif font-black uppercase tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-yellow-200 via-amber-300 to-yellow-500">
-                  {tier.title}
+                <h2
+                  className="text-xl sm:text-3xl font-cert-serif font-black uppercase tracking-wider text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.7)]"
+                  style={{ wordSpacing: '0.25em' }}
+                >
+                  {tier.title.split(' ').join('\u00A0')}
                 </h2>
                 <span className="text-2xl text-yellow-400">🌿</span>
               </div>
@@ -409,16 +441,16 @@ export const PublicCertificateView: React.FC<PublicCertificateViewProps> = ({
                 </h3>
               </div>
 
-              <p className="text-xs sm:text-sm text-slate-200 leading-relaxed font-sans">
-                {tier.verb}{' '}
+              <p className="text-xs sm:text-sm text-slate-200 leading-relaxed font-sans" style={{ wordSpacing: '0.15em' }}>
+                {tier.verb}{'\u00A0'}
                 <strong className="text-yellow-300 font-bold">
-                  COMMUNITY.VA AI INNOVATION HACKATHON 2026
+                  COMMUNITY.VA{'\u00A0\u00A0'}AI{'\u00A0'}INNOVATION{'\u00A0'}HACKATHON{'\u00A0'}2026
                 </strong>
-                , a 24-hour online hackathon, held on{' '}
-                <span className="text-white font-semibold">9 October 2026</span>.
+                ,{'\u00A0'}a{'\u00A0'}24-hour{'\u00A0'}online{'\u00A0'}hackathon,{'\u00A0'}held{'\u00A0'}on{'\u00A0'}
+                <span className="text-white font-semibold">9{'\u00A0'}October{'\u00A0'}2026</span>.
               </p>
 
-              <p className="text-xs text-slate-300 leading-relaxed max-w-xl mx-auto">
+              <p className="text-xs text-slate-300 leading-relaxed max-w-xl mx-auto" style={{ wordSpacing: '0.15em' }}>
                 {tier.text}
               </p>
             </div>
@@ -428,7 +460,7 @@ export const PublicCertificateView: React.FC<PublicCertificateViewProps> = ({
               <div className="bg-[#0B132B]/80 border border-yellow-500/40 rounded-xl p-2 text-center">
                 <div className="flex items-center justify-center gap-1.5 text-yellow-400 text-xs mb-0.5">
                   <Calendar className="w-3.5 h-3.5" />
-                  <span className="font-bold font-mono">9 OCT 2026</span>
+                  <span className="font-bold font-mono">9{'\u00A0'}OCT{'\u00A0'}2026</span>
                 </div>
                 <span className="text-[9px] text-slate-400 uppercase font-mono">DATE</span>
               </div>
@@ -436,7 +468,7 @@ export const PublicCertificateView: React.FC<PublicCertificateViewProps> = ({
               <div className="bg-[#0B132B]/80 border border-yellow-500/40 rounded-xl p-2 text-center">
                 <div className="flex items-center justify-center gap-1.5 text-yellow-400 text-xs mb-0.5">
                   <Clock className="w-3.5 h-3.5" />
-                  <span className="font-bold font-mono">24 HOURS</span>
+                  <span className="font-bold font-mono">24{'\u00A0'}HOURS</span>
                 </div>
                 <span className="text-[9px] text-slate-400 uppercase font-mono">DURATION</span>
               </div>
@@ -452,9 +484,9 @@ export const PublicCertificateView: React.FC<PublicCertificateViewProps> = ({
               <div className="bg-[#0B132B]/80 border border-yellow-500/40 rounded-xl p-2 text-center">
                 <div className="flex items-center justify-center gap-1.5 text-yellow-400 text-xs mb-0.5">
                   <Users className="w-3.5 h-3.5" />
-                  <span className="font-bold font-mono">2 - 4 MEMBERS</span>
+                  <span className="font-bold font-mono">2{'\u00A0'}-{'\u00A0'}4{'\u00A0'}MEMBERS</span>
                 </div>
-                <span className="text-[9px] text-slate-400 uppercase font-mono">TEAM SIZE</span>
+                <span className="text-[9px] text-slate-400 uppercase font-mono" style={{ wordSpacing: '0.15em' }}>TEAM{'\u00A0'}SIZE</span>
               </div>
             </div>
 
@@ -481,14 +513,14 @@ export const PublicCertificateView: React.FC<PublicCertificateViewProps> = ({
               {/* Left: Paidimarri Abhiram (Founder & CEO) */}
               <div className="text-center">
                 <div className="font-cert-signature text-2xl sm:text-3xl text-yellow-300 pb-0.5">
-                  Paidimarri Abhiram
+                  Paidimarri{'\u00A0'}Abhiram
                 </div>
                 <div className="w-36 mx-auto border-b border-yellow-400/60 pb-1" />
-                <div className="text-xs font-bold text-white uppercase mt-1">
-                  Paidimarri Abhiram
+                <div className="text-xs font-bold text-white uppercase mt-1 tracking-wider" style={{ wordSpacing: '0.25em' }}>
+                  Paidimarri{'\u00A0'}Abhiram
                 </div>
-                <div className="text-[10px] text-yellow-400 font-mono uppercase font-semibold">
-                  Founder & CEO
+                <div className="text-[10px] text-yellow-400 font-mono uppercase font-semibold" style={{ wordSpacing: '0.2em' }}>
+                  Founder{'\u00A0'}&{'\u00A0'}CEO
                 </div>
                 <div className="text-[9px] text-slate-400 font-mono">
                   Community.VA
@@ -508,25 +540,25 @@ export const PublicCertificateView: React.FC<PublicCertificateViewProps> = ({
                     <Trophy className="w-6 h-6" />
                   </div>
                 )}
-                <span className="text-[8px] font-mono text-yellow-300/80 uppercase mt-1">
-                  Official Seal • Verified
+                <span className="text-[8px] font-mono text-yellow-300/80 uppercase mt-1" style={{ wordSpacing: '0.15em' }}>
+                  Official{'\u00A0'}Seal{'\u00A0'}•{'\u00A0'}Verified
                 </span>
               </div>
 
               {/* Right: Organizing Team */}
               <div className="text-center">
                 <div className="font-cert-signature text-2xl sm:text-3xl text-cyan-300 pb-0.5">
-                  Organizing Team
+                  Organizing{'\u00A0'}Team
                 </div>
                 <div className="w-36 mx-auto border-b border-cyan-400/60 pb-1" />
-                <div className="text-xs font-bold text-white uppercase mt-1">
-                  Organizing Team
+                <div className="text-xs font-bold text-white uppercase mt-1 tracking-wider" style={{ wordSpacing: '0.25em' }}>
+                  Organizing{'\u00A0'}Team
                 </div>
                 <div className="text-[10px] text-cyan-400 font-mono uppercase font-semibold">
                   COMMUNITY.VA
                 </div>
-                <div className="text-[9px] text-slate-400 font-mono">
-                  Hackathon Committee
+                <div className="text-[9px] text-slate-400 font-mono" style={{ wordSpacing: '0.2em' }}>
+                  Hackathon{'\u00A0'}Committee
                 </div>
               </div>
             </div>
@@ -592,16 +624,25 @@ export const PublicCertificateView: React.FC<PublicCertificateViewProps> = ({
 
             {/* Title */}
             <div className="relative z-10 text-center space-y-2 mb-4">
-              <h1 className="text-2xl sm:text-4xl font-black uppercase tracking-wider text-blue-900 drop-shadow-sm">
-                AI INNOVATION HACKATHON 2026
+              <h1
+                className="text-2xl sm:text-4xl font-black uppercase tracking-wider text-blue-900 drop-shadow-sm"
+                style={{ wordSpacing: '0.25em' }}
+              >
+                AI{'\u00A0'}INNOVATION{'\u00A0'}HACKATHON{'\u00A0'}2026
               </h1>
 
-              <div className="inline-block px-4 py-1 rounded-full border border-blue-600 bg-blue-50 text-blue-800 text-[10px] sm:text-xs font-mono font-bold tracking-widest uppercase">
-                BUILD AI-POWERED SOLUTIONS FOR REAL-WORLD PROBLEMS
+              <div
+                className="inline-block px-4 py-1 rounded-full border border-blue-600 bg-blue-50 text-blue-800 text-[10px] sm:text-xs font-mono font-bold tracking-widest uppercase"
+                style={{ wordSpacing: '0.2em' }}
+              >
+                BUILD{'\u00A0'}AI-POWERED{'\u00A0'}SOLUTIONS{'\u00A0'}FOR{'\u00A0'}REAL-WORLD{'\u00A0'}PROBLEMS
               </div>
 
-              <h2 className="text-xl sm:text-3xl font-cert-serif font-black uppercase tracking-wider text-slate-900 pt-2">
-                {tier.title}
+              <h2
+                className="text-xl sm:text-3xl font-cert-serif font-black uppercase tracking-wider text-slate-900 pt-2"
+                style={{ wordSpacing: '0.25em' }}
+              >
+                {tier.title.split(' ').join('\u00A0')}
               </h2>
             </div>
 
@@ -615,16 +656,16 @@ export const PublicCertificateView: React.FC<PublicCertificateViewProps> = ({
                 </h3>
               </div>
 
-              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-sans">
-                {tier.verb}{' '}
+              <p className="text-xs sm:text-sm text-slate-700 leading-relaxed font-sans" style={{ wordSpacing: '0.15em' }}>
+                {tier.verb}{'\u00A0'}
                 <strong className="text-blue-900 font-bold">
-                  COMMUNITY.VA AI INNOVATION HACKATHON 2026
+                  COMMUNITY.VA{'\u00A0\u00A0'}AI{'\u00A0'}INNOVATION{'\u00A0'}HACKATHON{'\u00A0'}2026
                 </strong>
-                , a 24-hour online hackathon, held on{' '}
-                <span className="text-slate-900 font-semibold">9 October 2026</span>.
+                ,{'\u00A0'}a{'\u00A0'}24-hour{'\u00A0'}online{'\u00A0'}hackathon,{'\u00A0'}held{'\u00A0'}on{'\u00A0'}
+                <span className="text-slate-900 font-semibold">9{'\u00A0'}October{'\u00A0'}2026</span>.
               </p>
 
-              <p className="text-xs text-slate-600 leading-relaxed max-w-xl mx-auto">
+              <p className="text-xs text-slate-600 leading-relaxed max-w-xl mx-auto" style={{ wordSpacing: '0.15em' }}>
                 {tier.text}
               </p>
             </div>
@@ -634,7 +675,7 @@ export const PublicCertificateView: React.FC<PublicCertificateViewProps> = ({
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-2 text-center shadow-xs">
                 <div className="flex items-center justify-center gap-1.5 text-blue-700 text-xs mb-0.5">
                   <Calendar className="w-3.5 h-3.5" />
-                  <span className="font-bold font-mono">9 OCT 2026</span>
+                  <span className="font-bold font-mono">9{'\u00A0'}OCT{'\u00A0'}2026</span>
                 </div>
                 <span className="text-[9px] text-slate-500 uppercase font-mono">DATE</span>
               </div>
@@ -642,7 +683,7 @@ export const PublicCertificateView: React.FC<PublicCertificateViewProps> = ({
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-2 text-center shadow-xs">
                 <div className="flex items-center justify-center gap-1.5 text-blue-700 text-xs mb-0.5">
                   <Clock className="w-3.5 h-3.5" />
-                  <span className="font-bold font-mono">24 HOURS</span>
+                  <span className="font-bold font-mono">24{'\u00A0'}HOURS</span>
                 </div>
                 <span className="text-[9px] text-slate-500 uppercase font-mono">DURATION</span>
               </div>
@@ -658,9 +699,9 @@ export const PublicCertificateView: React.FC<PublicCertificateViewProps> = ({
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-2 text-center shadow-xs">
                 <div className="flex items-center justify-center gap-1.5 text-blue-700 text-xs mb-0.5">
                   <Users className="w-3.5 h-3.5" />
-                  <span className="font-bold font-mono">2 - 4 MEMBERS</span>
+                  <span className="font-bold font-mono">2{'\u00A0'}-{'\u00A0'}4{'\u00A0'}MEMBERS</span>
                 </div>
-                <span className="text-[9px] text-slate-500 uppercase font-mono">TEAM SIZE</span>
+                <span className="text-[9px] text-slate-500 uppercase font-mono" style={{ wordSpacing: '0.15em' }}>TEAM{'\u00A0'}SIZE</span>
               </div>
             </div>
 
@@ -687,14 +728,14 @@ export const PublicCertificateView: React.FC<PublicCertificateViewProps> = ({
               {/* Left: Paidimarri Abhiram (Founder & CEO) */}
               <div className="text-center">
                 <div className="font-cert-signature text-2xl sm:text-3xl text-blue-950 pb-0.5">
-                  Paidimarri Abhiram
+                  Paidimarri{'\u00A0'}Abhiram
                 </div>
                 <div className="w-36 mx-auto border-b border-slate-400 pb-1" />
-                <div className="text-xs font-bold text-slate-900 uppercase mt-1">
-                  Paidimarri Abhiram
+                <div className="text-xs font-bold text-slate-900 uppercase mt-1 tracking-wider" style={{ wordSpacing: '0.25em' }}>
+                  Paidimarri{'\u00A0'}Abhiram
                 </div>
-                <div className="text-[10px] text-blue-700 font-mono uppercase font-semibold">
-                  Founder & CEO
+                <div className="text-[10px] text-blue-700 font-mono uppercase font-semibold" style={{ wordSpacing: '0.2em' }}>
+                  Founder{'\u00A0'}&{'\u00A0'}CEO
                 </div>
                 <div className="text-[9px] text-slate-500 font-mono">
                   Community.VA
@@ -714,25 +755,25 @@ export const PublicCertificateView: React.FC<PublicCertificateViewProps> = ({
                     <ShieldCheck className="w-6 h-6" />
                   </div>
                 )}
-                <span className="text-[8px] font-mono text-slate-500 uppercase mt-1">
-                  Official Seal • Verified
+                <span className="text-[8px] font-mono text-slate-500 uppercase mt-1" style={{ wordSpacing: '0.15em' }}>
+                  Official{'\u00A0'}Seal{'\u00A0'}•{'\u00A0'}Verified
                 </span>
               </div>
 
               {/* Right: Organizing Team */}
               <div className="text-center">
                 <div className="font-cert-signature text-2xl sm:text-3xl text-blue-950 pb-0.5">
-                  Organizing Team
+                  Organizing{'\u00A0'}Team
                 </div>
                 <div className="w-36 mx-auto border-b border-slate-400 pb-1" />
-                <div className="text-xs font-bold text-slate-900 uppercase mt-1">
-                  Organizing Team
+                <div className="text-xs font-bold text-slate-900 uppercase mt-1 tracking-wider" style={{ wordSpacing: '0.25em' }}>
+                  Organizing{'\u00A0'}Team
                 </div>
                 <div className="text-[10px] text-blue-700 font-mono uppercase font-semibold">
                   COMMUNITY.VA
                 </div>
-                <div className="text-[9px] text-slate-500 font-mono">
-                  Hackathon Committee
+                <div className="text-[9px] text-slate-500 font-mono" style={{ wordSpacing: '0.2em' }}>
+                  Hackathon{'\u00A0'}Committee
                 </div>
               </div>
             </div>
